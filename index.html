@@ -922,10 +922,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   }
 
   function onFirstImpact(pos) {
-    shake = 0.06;
+    shake = 0.02;
     playCrash();
-    flash(pos.x, 0.3, pos.z, 0xffffff, 1.6, 0.25);
-    burst(pos.x, 0.3, pos.z, 30, 3);
   }
 
   // 倒れたピンを、その場で1本ずつ数える
@@ -935,8 +933,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
       if (p.counted || !pinIsDown(p)) continue;
       p.counted = true; liveCount++;
       playCount(liveCount);
-      var b = p.body.position;
-      if (liveCount % 3 === 0) burst(b.x, b.y + 0.1, b.z, 4, 1.5);
     }
   }
 
@@ -1029,8 +1025,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
           q.body.applyImpulse(new CANNON.Vec3(dx / d * f, f * 0.6, dz / d * f), new CANNON.Vec3(q.body.position.x, q.body.position.y + 0.12, q.body.position.z));
         }
       }
-      burst(c.x, c.y + 0.1, c.z, 10, 3);
-      flash(c.x, c.y + 0.15, c.z, 0xff9a3a, 1.0, 0.35);
+      if (booms <= 2) burst(c.x, c.y + 0.1, c.z, 4, 2);
       if (booms <= 2) playBoom();
     }
   }
