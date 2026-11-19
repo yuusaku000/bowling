@@ -937,7 +937,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
       if (p.counted || !pinIsDown(p)) continue;
       p.counted = true; liveCount++;
       playCount(liveCount);
-      drawCount(liveCount);
       var b = p.body.position;
       if (liveCount % 3 === 0) burst(b.x, b.y + 0.1, b.z, 4, 1.5);
     }
