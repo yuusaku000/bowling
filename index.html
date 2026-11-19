@@ -372,7 +372,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     { id: "heavy",   name: "重い玉",         desc: "玉の重さが2.5倍。ピンが大きくはじけ飛ぶ。", rare: false, max: 1 },
     { id: "big",     name: "大玉",           desc: "玉が1.5倍の大きさになる。何枚でも重ねられる…3枚まで。", rare: false, max: 3 },
     { id: "split",   name: "分身の玉",       desc: "レーンの半分で、玉が分身する。取るほど数がふえる（1枚で3つ、2枚で5つ…）。", rare: false, max: 7, w: 1.8 },
-    { id: "boom",    name: "爆発ピン",       desc: "倒れたピンが爆発して、まわりのピンも倒す。", rare: true, max: 1 },
+    { id: "boom",    name: "爆発ピン",       desc: "倒れたピンが、ときどき爆発する。重ねるほど、よく・大きく爆発する。", rare: false, max: 4 },
     { id: "fire",    name: "炎の玉",         desc: "当たったピンが、はるか遠くまで吹き飛ぶ。", rare: true, max: 1 },
     { id: "light",   name: "軽いピン",       desc: "ピンの重さが半分。ドミノのように倒れる。", rare: false, max: 1 },
     { id: "fat",     name: "太いピン",       desc: "ピンが太くなって、当たりやすくなる。", rare: false, max: 1 },
@@ -703,7 +703,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   }
   function playStrike() { [523, 659, 784, 1046, 1318].forEach(function (f, i) { tone(f, 0.4, 0.17, "square", i * 0.08); }); noiseHit(1.6, 1200, 0.35, "bandpass", 0.2); }
   function playGutter() { tone(180, 0.35, 0.2, "sawtooth"); tone(120, 0.5, 0.2, "sawtooth", 0.15); }
-  function playBoom() { noiseHit(0.5, 900, 0.45); tone(60, 0.35, 0.35); }
+  function playBoom(k) { k = k || 1; noiseHit(0.7, 700, Math.min(0.9, 0.45 * k)); noiseHit(0.25, 3000, 0.25 * k, "bandpass"); tone(55, 0.45, Math.min(0.6, 0.35 * k)); }
   function playBoing() { if (!actx) return; var t = actx.currentTime; var o = actx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(700, t + 0.15); var g = actx.createGain(); g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.35); }
   function playPick() { tone(880, 0.12, 0.15, "triangle"); tone(1320, 0.18, 0.12, "triangle", 0.07); }
   function playLose() { [392, 330, 262].forEach(function (f, i) { tone(f, 0.4, 0.15, "triangle", i * 0.18); }); }
@@ -1044,27 +1044,80 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     return allDone;
   }
 
+  // 爆発ピン：重ねた枚数で、爆発する確率と大きさが上がる
+  var BOOM_CHANCE = [0, 0.25, 0.4, 0.55, 0.7];
+  var BOOM_RADIUS = [0, 0.35, 0.5, 0.65, 0.8];
+  var BOOM_POWER  = [0, 4, 6, 8, 10];
   function updateBoom() {
-    if (!has("boom")) return;
+    var lv = has("boom");
+    if (!lv) return;
     var booms = 0;
-    for (var i = 0; i < pins.length && booms < 6; i++) {
+    for (var i = 0; i < pins.length && booms < 5; i++) {
       var p = pins[i];
       if (p.boomed || !p.counted) continue;
-      if (p.body.position.z < DECK_END) { p.boomed = true; continue; }
-      p.boomed = true; booms++;
-      var c = p.body.position;
+      p.boomed = true;
+      if (p.body.position.z < DECK_END || p.body.position.y < -0.2) continue;
+      if (Math.random() > BOOM_CHANCE[lv]) continue;
+      booms++;
+      var c = p.body.position, R = BOOM_RADIUS[lv], P = BOOM_POWER[lv];
       for (var j = 0; j < pins.length; j++) {
         var q = pins[j];
         if (q === p) continue;
         var dx = q.body.position.x - c.x, dz = q.body.position.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
-        if (d < 0.6 && d > 0.001) {
-          var f = (0.6 - d) * 8 * q.body.mass;
+        if (d < R && d > 0.001) {
+          var f = (1 - d / R) * P * q.body.mass;
           q.body.wakeUp();
-          q.body.applyImpulse(new CANNON.Vec3(dx / d * f, f * 0.6, dz / d * f), new CANNON.Vec3(q.body.position.x, q.body.position.y + 0.12, q.body.position.z));
+          q.body.applyImpulse(new CANNON.Vec3(dx / d * f, f * 0.7, dz / d * f), new CANNON.Vec3(q.body.position.x, q.body.position.y + 0.12, q.body.position.z));
         }
       }
-      if (booms <= 2) burst(c.x, c.y + 0.1, c.z, 4, 2);
-      if (booms <= 2) playBoom();
+      explosion(c.x, Math.max(0.15, c.y), c.z, R);
+    }
+  }
+
+  // 爆発の見た目：光、火花、けむり、床に広がる輪
+  var smokeMat = new THREE.SpriteMaterial({ map: glowTex, color: 0x5a5a62, transparent: true, opacity: 0.6, depthWrite: false });
+  var smokes = [], rings = [];
+  var ringGeo = new THREE.RingGeometry(0.8, 1, 32);
+  var boomSoundT = 0;
+  function explosion(x, y, z, R) {
+    var k = R / 0.5;
+    // 同時にたくさん爆発したときは、光を弱めて画面が真っ白にならないようにする
+    var crowd = rings.length >= 4 ? 0.35 : 1;
+    if (crowd === 1) flash(x, y + 0.1, z, 0xffffff, 0.8 * k, 0.12);
+    flash(x, y + 0.15, z, 0xff8a2a, 2.0 * k * crowd, 0.45);
+    flash(x, y + 0.2, z, 0xffcf5a, 1.2 * k * crowd, 0.3);
+    burst(x, y + 0.1, z, Math.round(14 * k), 3.5 * k);
+    for (var i = 0; i < 3; i++) {
+      var sm = new THREE.Sprite(smokeMat.clone());
+      sm.position.set(x + rand(-0.1, 0.1) * k, y + 0.2 + i * 0.1, z + rand(-0.1, 0.1) * k);
+      sm.scale.set(0.3 * k, 0.3 * k, 1);
+      scene.add(sm);
+      smokes.push({ s: sm, life: 1.2 + i * 0.2, max: 1.2 + i * 0.2, grow: (1.2 + i * 0.3) * k, vy: 0.5 + i * 0.15 });
+    }
+    var ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(x, 0.02, z); ring.scale.setScalar(0.05);
+    scene.add(ring);
+    rings.push({ m: ring, life: 0.35, max: 0.35, R: R });
+    shake = Math.max(shake, 0.02 * k);
+    var now = performance.now();
+    if (now - boomSoundT > 90) { boomSoundT = now; playBoom(k); }
+  }
+  function updateExplosions(dt) {
+    var i;
+    for (i = smokes.length - 1; i >= 0; i--) {
+      var s = smokes[i]; s.life -= dt;
+      var t = 1 - s.life / s.max;
+      s.s.position.y += s.vy * dt;
+      var sc = 0.3 + s.grow * t; s.s.scale.set(sc, sc, 1);
+      s.s.material.opacity = 0.6 * (1 - t);
+      if (s.life <= 0) { scene.remove(s.s); s.s.material.dispose(); smokes.splice(i, 1); }
+    }
+    for (i = rings.length - 1; i >= 0; i--) {
+      var r = rings[i]; r.life -= dt;
+      var u = 1 - r.life / r.max;
+      r.m.scale.setScalar(0.05 + r.R * 1.3 * u);
+      r.m.material.opacity = 0.85 * (1 - u);
+      if (r.life <= 0) { scene.remove(r.m); r.m.material.dispose(); rings.splice(i, 1); }
     }
   }
 
@@ -1207,6 +1260,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     }
     updateParticles(dt);
     updateFlashes(dt);
+    updateExplosions(dt);
     if (bigT > 0) { bigT -= rawDt; bigAge += rawDt; if (bigT <= 0) bigText.visible = false; }
     var pop = bigAge < 0.18 ? 0.6 + bigAge / 0.18 * 0.55 : (bigAge < 0.3 ? 1.15 - (bigAge - 0.18) / 0.12 * 0.15 : 1);
     bigText.scale.setScalar(pop);
