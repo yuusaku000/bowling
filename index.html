@@ -52,6 +52,7 @@ button.primary { background: var(--lane); color: #22170c; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 #note { margin: 0; font-size: 0.82rem; color: var(--ink-dim); line-height: 1.6; }
+.credit { margin: 0; font-size: 0.72rem; color: var(--ink-dim); opacity: 0.8; }
 /* パソコン用の「ため」のメーター */
 #power {
   position: fixed; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
@@ -82,6 +83,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
       <button id="btnFlat">画面で遊ぶ</button>
     </div>
     <p id="note">VRが使えるか調べています…</p>
+    <p class="credit">ピンの音：juskiddink（Freesound）の録音を qubodup が編集したもの ・ CC BY-SA 3.0</p>
   </div>
 </div>
 
@@ -627,6 +629,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
         var af = actx.createBiquadFilter(); af.type = "bandpass"; af.frequency.value = 500; af.Q.value = 0.6;
         var ag = actx.createGain(); ag.gain.value = 0.025;
         amb.connect(af); af.connect(ag); ag.connect(actx.destination); amb.start();
+        loadSamples();
       }
       if (actx.state === "suspended") actx.resume();
     } catch (e) { actx = null; }
@@ -646,16 +649,51 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     var g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur + 0.05);
   }
+  // ===== 本物のピンの音（録音：juskiddink / CC BY-SA 3.0。くわしくは CREDITS.md） =====
+  var sfx = {};
+  var SAMPLE_FILES = { s1: "sounds/strike1.wav", s2: "sounds/strike2.wav", s3: "sounds/strike3n-5.wav" };
+  function loadSamples() {
+    Object.keys(SAMPLE_FILES).forEach(function (k) {
+      fetch(SAMPLE_FILES[k]).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+        actx.decodeAudioData(buf, function (decoded) { sfx[k] = decoded; }, function () {});
+      }).catch(function () {});
+    });
+  }
+  function playSample(k, vol, rate, offset, dur, delay) {
+    if (!actx || !sfx[k]) return false;
+    var t = actx.currentTime + (delay || 0);
+    var src = actx.createBufferSource(); src.buffer = sfx[k];
+    src.playbackRate.value = rate || 1;
+    var g = actx.createGain(); g.gain.setValueAtTime(vol, t);
+    if (dur) g.gain.setTargetAtTime(0.0001, t + dur * 0.6, dur * 0.25);
+    src.connect(g); g.connect(actx.destination);
+    if (dur) src.start(t, offset || 0, dur + 0.1); else src.start(t, offset || 0);
+    return true;
+  }
   var lastClack = 0;
   function playClack(v) {
     var now = performance.now();
-    if (now - lastClack < 22) return;
+    if (now - lastClack < 45) return;
     lastClack = now;
-    var vol = clamp(v / 5, 0.06, 0.55);
+    var vol = clamp(v / 7, 0.04, 0.3);
+    // 録音の頭の「カコン」を短く切り出して、ピン同士がぶつかる音にする
+    if (playSample("s1", vol, rand(0.92, 1.25), rand(0, 0.05), 0.11)) return;
     noiseHit(0.1, rand(2600, 4400), vol, "bandpass");
     tone(rand(750, 1150), 0.07, vol * 0.45, "triangle");
   }
-  function playCrash() { noiseHit(0.9, 1800, 0.9); noiseHit(0.5, 4000, 0.5, "bandpass", 0.03); tone(70, 0.4, 0.5); }
+  function playCrash() {
+    var n = pins.length;
+    var ok;
+    if (n <= 12) ok = playSample(Math.random() < 0.5 ? "s1" : "s2", 0.95, rand(0.97, 1.03));
+    else if (n <= 40) ok = playSample("s2", 1.0, rand(0.95, 1.02));
+    else {
+      // ピンが多いときは音を重ねて、にぎやかに
+      ok = playSample("s3", 1.0, 1);
+      playSample("s2", 0.7, 0.93, 0, 0, 0.07);
+      if (n >= 100) playSample("s1", 0.6, 0.88, 0, 0, 0.15);
+    }
+    if (!ok) { noiseHit(0.9, 1800, 0.9); noiseHit(0.5, 4000, 0.5, "bandpass", 0.03); tone(70, 0.4, 0.5); }
+  }
   // 倒れたピンを数える音（だんだん高くなる）
   var SCALE = [0, 2, 4, 7, 9];
   function playCount(n) {
