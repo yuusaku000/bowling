@@ -367,7 +367,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     { id: "p10",     name: "ピン＋10",       desc: "ピンが10本ふえる。", rare: false, max: 5 },
     { id: "x2",      name: "ピン×2",         desc: "ピンの数が2倍になる。", rare: true, max: 2 },
     { id: "x3",      name: "ピン×3",         desc: "ピンの数が3倍になる。", rare: true, max: 1, w: 0.25 },
-    { id: "tower",   name: "ピンの2段重ね",  desc: "全部のピンの上に、もう1本ずつ乗る。", rare: true, max: 1 },
     { id: "heavy",   name: "重い玉",         desc: "玉の重さが2.5倍。ピンが大きくはじけ飛ぶ。", rare: false, max: 1 },
     { id: "big",     name: "大玉",           desc: "玉が1.5倍の大きさになる。何枚でも重ねられる…3枚まで。", rare: false, max: 3 },
     { id: "split",   name: "分身の玉",       desc: "レーンの半分で、玉が分身する。取るほど数がふえる（1枚で3つ、2枚で5つ…）。", rare: false, max: 7, w: 1.8 },
@@ -384,7 +383,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     var n = 10 + 5 * has("p5") + 10 * has("p10");
     n *= Math.pow(2, has("x2"));
     n *= Math.pow(3, has("x3"));
-    return Math.min(n, has("tower") ? MAX_PINS / 2 : MAX_PINS);
+    return Math.min(n, MAX_PINS);
   }
   function ballRadius() { return BALL_R * Math.pow(1.5, has("big")); }
   function ballMass() { return BALL_MASS * (has("heavy") ? 2.5 : 1) * Math.pow(1.6, has("big")); }
@@ -420,7 +419,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     if (pinMesh) { scene.remove(pinMesh); pinMesh.dispose(); }
     var n = pinCount();
     var spots = layoutPins(n);
-    var layers = has("tower") ? 2 : 1;
+    var layers = 1;
     var fat = has("fat") ? 1.35 : 1;
     var mass = has("light") ? 0.75 : 1.5;
     pinMesh = new THREE.InstancedMesh(pinGeoCentered, pinMat, spots.length * layers);
@@ -805,9 +804,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     g.fillText(c.name, W / 2, 352);
     g.fillStyle = "#cfd6ea"; g.font = "28px 'Zen Kaku Gothic New', 'Yu Gothic', sans-serif";
     wrapText(g, c.desc, W - 70).forEach(function (l, i) { g.fillText(l, W / 2, 405 + i * 38); });
-    if (/^(p5|p10|x2|x3|tower)$/.test(c.id)) {
+    if (/^(p5|p10|x2|x3)$/.test(c.id)) {
       var before = pins.length, saved = owned[c.id] || 0;
-      owned[c.id] = saved + 1; var after = pinCount() * (has("tower") ? 2 : 1); owned[c.id] = saved; if (!saved) delete owned[c.id];
+      owned[c.id] = saved + 1; var after = pinCount(); owned[c.id] = saved; if (!saved) delete owned[c.id];
       g.fillStyle = "#7dff9a"; g.font = "bold 28px 'Zen Kaku Gothic New', sans-serif"; g.fillText(before + "本 → " + after + "本", W / 2, 528);
     } else if (owned[c.id]) { g.fillStyle = "#7dff9a"; g.font = "bold 24px 'Zen Kaku Gothic New', sans-serif"; g.fillText("いま " + owned[c.id] + " 枚", W / 2, 528); }
     panel.tex.needsUpdate = true;
@@ -831,7 +830,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     else if (id === "p10") { for (var j = 0; j < 4; j++) pin(cx - 110 + j * 34, cy, 0.7); label("+10", cx + 62, cy + 24, null, 58); }
     else if (id === "x2") { for (var a = 0; a < 4; a++) { pin(cx - 100 + a * 36, cy - 32, 0.6); pin(cx - 100 + a * 36, cy + 40, 0.6); } label("×2", cx + 75, cy + 24, "#ffcf5a"); }
     else if (id === "x3") { for (var r3 = 0; r3 < 3; r3++) for (var c3 = 0; c3 < 4; c3++) pin(cx - 105 + c3 * 32, cy - 60 + r3 * 58, 0.5); label("×3", cx + 78, cy + 24, "#ff7a6a"); }
-    else if (id === "tower") { pin(cx - 40, cy + 30, 0.9); pin(cx - 40, cy - 52, 0.9); pin(cx + 40, cy + 30, 0.9); pin(cx + 40, cy - 52, 0.9); }
     else if (id === "heavy") { ball(cx, cy, 70, "#2a2f3a"); g.fillStyle = "#ffcf5a"; g.font = "bold 40px sans-serif"; g.textAlign = "center"; g.fillText("16kg", cx, cy + 14); }
     else if (id === "big") { ball(cx, cy, 95); }
     else if (id === "split") { ball(cx - 70, cy + 10, 34); ball(cx, cy - 20, 34); ball(cx + 70, cy + 10, 34); }
@@ -847,7 +845,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     var pool = CARDS.filter(function (c) { return (owned[c.id] || 0) < c.max; });
     var out = [];
     // 1枚は必ず「ピンが増える」カードにする
-    var pinPool = pool.filter(function (c) { return /^(p5|p10|x2|x3|tower)$/.test(c.id); });
+    var pinPool = pool.filter(function (c) { return /^(p5|p10|x2|x3)$/.test(c.id); });
     function pickFrom(list) {
       var weights = list.map(function (c) { return c.w || (c.rare ? 0.5 : 1); });
       var sum = weights.reduce(function (a, b) { return a + b; }, 0), r = Math.random() * sum, idx = 0;
