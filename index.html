@@ -1185,21 +1185,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     rig.position.set(posX, inXR ? EYE : 0, PLAYER_Z);
     if (!inXR) {
       var lookYaw = -aimX * 0.1, pitch = -0.14, back = 0;
-      // 玉を追いかけるカメラ（パソコンだけ。VRでは酔うのでやらない）
-      var targetZ = 0, targetY = 0;
-      if ((state === "rolling" || state === "settle" || state === "result") && balls.length) {
-        var lz = balls[0].body.position.z;
-        targetZ = clamp(lz + 4.5 - PLAYER_Z, HEAD_Z + 5.0 - PLAYER_Z, 0);
-        targetY = clamp(targetZ * 0.03, -0.5, 0);
-        lookYaw = 0;
-      }
-      // 追いかけるほど、ピンを見下ろす角度にする
-      pitch = -0.14 + clamp(camFollowZ / (HEAD_Z + 5.0 - PLAYER_Z), 0, 1) * -0.2;
-      camFollowZ += (targetZ - camFollowZ) * Math.min(1, rawDt * (targetZ < camFollowZ ? 2.2 : 3));
-      camFollowY += (targetY - camFollowY) * Math.min(1, rawDt * 3);
+      // カメラはいつも投げた場所から（ピンには近づかない）
+      if (state === "rolling" || state === "settle" || state === "result") lookYaw = 0;
       if (state === "cards") { pitch = -0.1; lookYaw = 0; back = camera.aspect < 1.2 ? 1.3 : 0.4; }
       var sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake;
-      camera.position.set(-posX * (camFollowZ < -1 ? 1 : 0) + sx, EYE + camFollowY + sy, back + camFollowZ);
+      camera.position.set(sx, EYE + sy, back);
       camera.rotation.set(pitch, lookYaw, 0);
       powerEl.hidden = !holding;
       if (holding) powerBar.style.width = (holdPower() * 100).toFixed(0) + "%";
