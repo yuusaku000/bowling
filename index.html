@@ -921,7 +921,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   }
 
   function onFirstImpact(pos) {
-    timeScale = 0.3; slowT = 0.55;     // 当たった瞬間だけスロー
     shake = 0.06;
     playCrash();
     flash(pos.x, 0.3, pos.z, 0xffffff, 1.6, 0.25);
