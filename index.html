@@ -293,8 +293,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   var MASK_W = ROOM_HALF * 2;
   var maskCanvas = document.createElement("canvas"); maskCanvas.width = 1024; maskCanvas.height = 160;
   var maskTex = new THREE.CanvasTexture(maskCanvas);
-  var maskPanel = new THREE.Mesh(new THREE.PlaneGeometry(MASK_W, MASK_W * 160 / 1024), new THREE.MeshBasicMaterial({ map: maskTex }));
-  maskPanel.position.set(0, 2.6, -16.6); scene.add(maskPanel);
+  var maskPanel = new THREE.Mesh(new THREE.PlaneGeometry(MASK_W, 1.5), new THREE.MeshBasicMaterial({ map: maskTex }));
+  maskPanel.position.set(0, 2.65, -16.6); scene.add(maskPanel);   // 下のはしが目の高さより上になるように
   function drawMask(gameNo) {
     var g = maskCanvas.getContext("2d");
     var gr = g.createLinearGradient(0, 0, 0, 160);
@@ -684,8 +684,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   monitor.position.set(0, 2.45, -2.4); monitor.rotation.x = 0.2;
   scene.add(monitor);
   var pole = box(0.05, 0.6, 0.05, darkMat); pole.position.set(0, 3.05, -2.45); scene.add(pole);
-  var pinCam = new THREE.PerspectiveCamera(48, 0.98 / 0.78, 0.1, 30);
-  pinCam.position.set(0, 2.0, -15.6); pinCam.lookAt(0, 0.1, -19.6);
+  // ピン台の手前・ななめ上から、ピン全体を映す（飾り板より奥に置く）
+  var pinCam = new THREE.PerspectiveCamera(58, 0.98 / 0.78, 0.1, 30);
+  pinCam.position.set(0, 1.5, -16.9); pinCam.lookAt(0, 0.05, -19.9);
 
   var lastLine = "", speedKmh = 0, monKey = "", liveCount = 0;
   function drawMonitor() {
@@ -953,7 +954,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     } else {
       lastLine = down + "本 たおした（＋" + down + "点）";
       var ratio = down / total;
-      showBig(down + "本！", ratio >= 0.8 ? "おしい！" : (ratio >= 0.5 ? "いいね" : ""), ratio >= 0.8 ? "#ffcf5a" : "#ffffff", 1.2);
+      showBig(down + "本！", "", ratio >= 0.8 ? "#ffcf5a" : "#ffffff", 1.2);
     }
   }
 
@@ -1224,7 +1225,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
       var xrOn = renderer.xr.enabled, prevRT = renderer.getRenderTarget();
       renderer.xr.enabled = false;
       renderer.setRenderTarget(pinRT);
+      maskPanel.visible = false;
       renderer.render(scene, pinCam);
+      maskPanel.visible = true;
       renderer.setRenderTarget(prevRT);
       renderer.xr.enabled = xrOn;
     }
